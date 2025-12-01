@@ -1,6 +1,6 @@
 {
   "name": "@bopen-io/gemcp",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "MCP server for Google Gemini API - text and image generation",
   "type": "module",
   "main": "src/index.ts",
