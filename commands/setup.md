@@ -28,4 +28,10 @@ source ~/.zshrc  # or ~/.bashrc
 
 **Restart Claude Code** for the changes to take effect.
 
-4. After the user confirms they've set up the key and restarted, verify the server is working by checking if the gemini tools are available.
+4. If the server still fails to connect after setting up the API key, clear the bun cache:
+```bash
+rm -rf ~/.bun/install/cache/@bopen-io/gemcp*
+```
+Then restart Claude Code again.
+
+5. After the user confirms they've set up the key and restarted, verify the server is working by checking if the gemini tools are available.
