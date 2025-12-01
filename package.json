@@ -1,6 +1,6 @@
 {
-  "name": "gemcp",
-  "version": "0.1.0",
+  "name": "@bopen-io/gemcp",
+  "version": "0.0.1",
   "description": "MCP server for Google Gemini API - text and image generation",
   "type": "module",
   "main": "src/index.ts",
@@ -15,7 +15,7 @@
     "url": "git+https://github.com/rohenaz/gemcp.git"
   },
   "keywords": ["mcp", "gemini", "google", "ai", "claude"],
-  "author": "rohenaz",
+  "author": "bopen-io",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/rohenaz/gemcp/issues"

@@ -7,28 +7,13 @@ MCP server for Google Gemini API - text and image generation.
 ### From npm
 
 ```bash
-bunx gemcp
-# or
-npx gemcp
+bunx @bopen-io/gemcp
 ```
 
-### From source
+### Add to Claude Code
 
 ```bash
-git clone https://github.com/rohenaz/gemcp.git
-cd gemcp
-bun install
-```
-
-## Add to Claude Code
-
-```bash
-claude mcp add -s user gemini -e GEMINI_API_KEY=$GEMINI_API_KEY -- bunx gemcp
-```
-
-Or from source:
-```bash
-claude mcp add -s user gemini -e GEMINI_API_KEY=$GEMINI_API_KEY -- bun ~/code/gemcp/src/index.ts
+claude mcp add -s user gemini -e GEMINI_API_KEY=$GEMINI_API_KEY -- bunx @bopen-io/gemcp
 ```
 
 ## Tools
