@@ -1,0 +1,18 @@
+{
+  "name": "gemcp",
+  "description": "Google Gemini API MCP server - text generation, conversations, and image generation/editing",
+  "version": "0.0.1",
+  "author": {
+    "name": "b-open-io",
+    "url": "https://github.com/b-open-io"
+  },
+  "repository": "rohenaz/gemcp",
+  "keywords": [
+    "gemini",
+    "google",
+    "mcp",
+    "ai",
+    "image-generation",
+    "text-generation"
+  ]
+}
