@@ -39,8 +39,16 @@ export async function callGemini(
     }
   });
 
+  // Extract text from candidates (response.text doesn't work for gemini-3)
+  let content = '';
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.text) content += part.text;
+    }
+  }
+
   return {
-    content: response.text || '',
+    content,
     usage: response.usageMetadata ? {
       promptTokens: response.usageMetadata.promptTokenCount || 0,
       completionTokens: response.usageMetadata.candidatesTokenCount || 0,
@@ -76,8 +84,16 @@ export async function callGeminiWithMessages(
     }
   });
 
+  // Extract text from candidates (response.text doesn't work for gemini-3)
+  let content = '';
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.text) content += part.text;
+    }
+  }
+
   return {
-    content: response.text || '',
+    content,
     usage: response.usageMetadata ? {
       promptTokens: response.usageMetadata.promptTokenCount || 0,
       completionTokens: response.usageMetadata.candidatesTokenCount || 0,
