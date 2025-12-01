@@ -162,10 +162,14 @@ async function main() {
               const img = result.images[i];
               const imgBuffer = Buffer.from(img.data, "base64");
               if (args.output_path) {
-                const filePath = result.images.length > 1 ? args.output_path.replace(/(\.[^.]+)$/, `_${i + 1}$1`) : args.output_path;
+                // Use correct extension based on actual mime type from Gemini
+                const extMap: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif' };
+                const correctExt = extMap[img.mimeType] || '.png';
+                let filePath = args.output_path.replace(/\.[^.]+$/, correctExt);
+                if (result.images.length > 1) filePath = filePath.replace(/(\.[^.]+)$/, `_${i + 1}$1`);
                 const absPath = resolve(filePath);
                 await writeFile(absPath, imgBuffer);
-                content.push({ type: "text", text: `Saved: ${absPath}` });
+                content.push({ type: "text", text: `Saved: ${absPath} (${img.mimeType})` });
               } else {
                 content.push({ type: "image", data: img.data, mimeType: img.mimeType });
               }
