@@ -1,0 +1,33 @@
+{
+  "name": "gemcp",
+  "version": "0.1.0",
+  "description": "MCP server for Google Gemini API - text and image generation",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "gemcp": "src/index.ts"
+  },
+  "scripts": {
+    "start": "bun src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rohenaz/gemcp.git"
+  },
+  "keywords": ["mcp", "gemini", "google", "ai", "claude"],
+  "author": "rohenaz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rohenaz/gemcp/issues"
+  },
+  "homepage": "https://github.com/rohenaz/gemcp#readme",
+  "dependencies": {
+    "@google/genai": "^1.30.0",
+    "@modelcontextprotocol/sdk": "0.6.0",
+    "zod": "^3.22.4",
+    "zod-to-json-schema": "^3.22.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
