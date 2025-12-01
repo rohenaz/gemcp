@@ -2,19 +2,29 @@
 
 MCP server for Google Gemini API - text and image generation.
 
-## Install
-
-### From npm
+## Install via Plugin
 
 ```bash
-bunx @bopen-io/gemcp
+/plugin marketplace add b-open-io/claude-plugins
+/plugin install gemcp@b-open-io
 ```
 
-### Add to Claude Code
+Then run `/gemcp:setup` to configure your API key.
+
+## Install via CLI
 
 ```bash
 claude mcp add -s user gemini -e GEMINI_API_KEY=$GEMINI_API_KEY -- bunx @bopen-io/gemcp
 ```
+
+## Setup
+
+1. Get an API key from [Google AI Studio](https://aistudio.google.com/apikey)
+2. Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
+   ```bash
+   export GEMINI_API_KEY="your-api-key-here"
+   ```
+3. Restart your terminal and Claude Code
 
 ## Tools
 
@@ -26,10 +36,6 @@ claude mcp add -s user gemini -e GEMINI_API_KEY=$GEMINI_API_KEY -- bunx @bopen-i
 
 - `gemini-3-pro-preview` - Text (default)
 - `gemini-3-pro-image-preview` - Images
-
-## Environment
-
-`GEMINI_API_KEY` - Get from [Google AI Studio](https://aistudio.google.com/apikey)
 
 ## License
 
