@@ -1,15 +1,18 @@
-import { GoogleGenAI } from "@google/genai";
+import {
+  GoogleGenAI,
+  RawReferenceImage,
+  MaskReferenceImage,
+} from "@google/genai";
+import type {
+  GenerateContentConfig,
+  ImageConfig,
+  UpscaleImageConfig,
+  EditImageConfig,
+  Image,
+  MaskReferenceConfig,
+} from "@google/genai";
 
-export interface GeminiOptions {
-  model?: string;
-  instructions?: string;
-  thinkingLevel?: 'low' | 'high';
-  includeThoughts?: boolean;
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-}
-
+// Result types for our wrapper functions
 export interface GeminiResult {
   content: string;
   reasoning?: string;
@@ -20,23 +23,66 @@ export interface GeminiResult {
   };
 }
 
+export interface GeminiImageResult {
+  text?: string;
+  images: Array<{ mimeType: string; data: string }>;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+export interface GeminiSvgResult {
+  svg: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+export interface SegmentationMask {
+  box_2d: [number, number, number, number];
+  mask: string;
+  label: string;
+}
+
+export interface GeminiSegmentResult {
+  masks: SegmentationMask[];
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+// Text generation
 export async function callGemini(
   apiKey: string,
   prompt: string,
-  options: GeminiOptions = {}
+  options: {
+    model?: string;
+    instructions?: string;
+    maxTokens?: number;
+    temperature?: number;
+    topP?: number;
+  } = {}
 ): Promise<GeminiResult> {
   const ai = new GoogleGenAI({ apiKey });
   const model = options.model || 'gemini-3-pro-preview';
 
+  const config: GenerateContentConfig = {
+    systemInstruction: options.instructions,
+    maxOutputTokens: options.maxTokens,
+    temperature: options.temperature,
+    topP: options.topP,
+  };
+
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
-    config: {
-      systemInstruction: options.instructions,
-      maxOutputTokens: options.maxTokens,
-      temperature: options.temperature,
-      topP: options.topP,
-    }
+    config
   });
 
   let content = '';
@@ -56,10 +102,17 @@ export async function callGemini(
   };
 }
 
+// Messages-based generation
 export async function callGeminiWithMessages(
   apiKey: string,
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-  options: GeminiOptions = {}
+  options: {
+    model?: string;
+    instructions?: string;
+    maxTokens?: number;
+    temperature?: number;
+    topP?: number;
+  } = {}
 ): Promise<GeminiResult> {
   const ai = new GoogleGenAI({ apiKey });
   const model = options.model || 'gemini-3-pro-preview';
@@ -72,15 +125,17 @@ export async function callGeminiWithMessages(
       parts: [{ text: m.content }]
     }));
 
+  const config: GenerateContentConfig = {
+    systemInstruction: options.instructions || systemMessage?.content,
+    maxOutputTokens: options.maxTokens,
+    temperature: options.temperature,
+    topP: options.topP,
+  };
+
   const response = await ai.models.generateContent({
     model,
     contents: chatMessages,
-    config: {
-      systemInstruction: options.instructions || systemMessage?.content,
-      maxOutputTokens: options.maxTokens,
-      temperature: options.temperature,
-      topP: options.topP,
-    }
+    config
   });
 
   let content = '';
@@ -100,74 +155,42 @@ export async function callGeminiWithMessages(
   };
 }
 
-// Image generation types and functions
-
-export interface GeminiImageResult {
-  text?: string;
-  images: Array<{ mimeType: string; data: string }>;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-}
-
-export interface GeminiImageOptions {
-  imageSize?: '1K' | '2K' | '4K';
-  aspectRatio?: '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9';
-  outputFormat?: 'png' | 'jpeg' | 'webp';
-  jpegQuality?: number;
-  negativePrompt?: string;
-  numberOfImages?: number;
-  guidanceScale?: number;
-  seed?: number;
-  inputImage?: { data: string; mimeType: string };
-}
-
+// Image generation using Gemini 3 Pro
 export async function callGeminiImage(
   apiKey: string,
   prompt: string,
-  options: GeminiImageOptions = {}
+  options: {
+    imageSize?: ImageConfig['imageSize'];
+    aspectRatio?: ImageConfig['aspectRatio'];
+    negativePrompt?: string;
+    numberOfImages?: number;
+    guidanceScale?: number;
+    seed?: number;
+    inputImage?: Image;
+  } = {}
 ): Promise<GeminiImageResult> {
   const ai = new GoogleGenAI({ apiKey });
 
   const parts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [];
 
-  if (options.inputImage) {
-    parts.push({ inlineData: options.inputImage });
+  if (options.inputImage?.imageBytes) {
+    parts.push({ inlineData: { data: options.inputImage.imageBytes, mimeType: options.inputImage.mimeType || 'image/png' } });
   }
   parts.push({ text: prompt });
 
-  // Build image config
-  const imageConfig: Record<string, unknown> = {};
+  // ImageConfig only supports aspectRatio and imageSize in Gemini API
+  const imageConfig: ImageConfig = {};
   if (options.imageSize) imageConfig.imageSize = options.imageSize;
   if (options.aspectRatio) imageConfig.aspectRatio = options.aspectRatio;
 
-  // Map output format to mime type
-  const formatToMime: Record<string, string> = {
-    'png': 'image/png',
-    'jpeg': 'image/jpeg',
-    'webp': 'image/webp'
-  };
-  if (options.outputFormat) {
-    imageConfig.outputMimeType = formatToMime[options.outputFormat];
-  }
-  if (options.jpegQuality !== undefined) {
-    imageConfig.outputCompressionQuality = options.jpegQuality;
-  }
-
-  // Build generation config
-  const config: Record<string, unknown> = {
+  const config: GenerateContentConfig = {
     responseModalities: ['IMAGE', 'TEXT'],
+    seed: options.seed,
   };
 
   if (Object.keys(imageConfig).length > 0) {
     config.imageConfig = imageConfig;
   }
-  if (options.negativePrompt) config.negativePrompt = options.negativePrompt;
-  if (options.numberOfImages) config.numberOfImages = options.numberOfImages;
-  if (options.guidanceScale) config.guidanceScale = options.guidanceScale;
-  if (options.seed !== undefined) config.seed = options.seed;
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-image-preview',
@@ -202,18 +225,15 @@ export async function callGeminiImage(
   };
 }
 
-// Upscale image
-
-export interface GeminiUpscaleOptions {
-  outputFormat?: 'png' | 'jpeg' | 'webp';
-  jpegQuality?: number;
-  upscaleFactor?: '2x' | '4x';
-}
-
+// Upscale image using Imagen
 export async function callGeminiUpscale(
   apiKey: string,
-  imageData: { data: string; mimeType: string },
-  options: GeminiUpscaleOptions = {}
+  imageData: Image,
+  options: {
+    outputFormat?: 'png' | 'jpeg' | 'webp';
+    jpegQuality?: number;
+    upscaleFactor?: 'x2' | 'x4';
+  } = {}
 ): Promise<GeminiImageResult> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -223,20 +243,18 @@ export async function callGeminiUpscale(
     'webp': 'image/webp'
   };
 
-  const config: Record<string, unknown> = {};
+  const config: UpscaleImageConfig = {};
   if (options.outputFormat) {
     config.outputMimeType = formatToMime[options.outputFormat];
   }
   if (options.jpegQuality !== undefined) {
     config.outputCompressionQuality = options.jpegQuality;
   }
-  if (options.upscaleFactor) {
-    config.upscaleFactor = options.upscaleFactor;
-  }
 
   const response = await ai.models.upscaleImage({
     model: 'imagen-3.0-generate-002',
     image: imageData,
+    upscaleFactor: options.upscaleFactor || 'x2',
     config
   });
 
@@ -256,50 +274,21 @@ export async function callGeminiUpscale(
   return { images };
 }
 
-// Edit image with mask
-
-export interface GeminiEditOptions {
-  outputFormat?: 'png' | 'jpeg' | 'webp';
-  jpegQuality?: number;
-  negativePrompt?: string;
-  numberOfImages?: number;
-  guidanceScale?: number;
-  seed?: number;
-  editMode?: 'inpaint' | 'outpaint';
-}
-
-// SVG generation types
-export interface GeminiSvgResult {
-  svg: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-}
-
-// Segmentation types
-export interface SegmentationMask {
-  box_2d: [number, number, number, number]; // [y0, x0, y1, x1] normalized 0-1000
-  mask: string; // base64 encoded PNG
-  label: string;
-}
-
-export interface GeminiSegmentResult {
-  masks: SegmentationMask[];
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-}
-
+// Edit image using Imagen
 export async function callGeminiEdit(
   apiKey: string,
   prompt: string,
-  imageData: { data: string; mimeType: string },
-  maskData?: { data: string; mimeType: string },
-  options: GeminiEditOptions = {}
+  imageData: Image,
+  maskData?: Image,
+  options: {
+    outputFormat?: 'png' | 'jpeg' | 'webp';
+    jpegQuality?: number;
+    negativePrompt?: string;
+    numberOfImages?: number;
+    guidanceScale?: number;
+    seed?: number;
+    editMode?: 'inpaint' | 'outpaint';
+  } = {}
 ): Promise<GeminiImageResult> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -309,7 +298,7 @@ export async function callGeminiEdit(
     'webp': 'image/webp'
   };
 
-  const config: Record<string, unknown> = {};
+  const config: EditImageConfig = {};
   if (options.outputFormat) {
     config.outputMimeType = formatToMime[options.outputFormat];
   }
@@ -320,23 +309,37 @@ export async function callGeminiEdit(
   if (options.numberOfImages) config.numberOfImages = options.numberOfImages;
   if (options.guidanceScale) config.guidanceScale = options.guidanceScale;
   if (options.seed !== undefined) config.seed = options.seed;
-  if (options.editMode) config.editMode = options.editMode.toUpperCase();
 
-  const editParams: Record<string, unknown> = {
-    model: 'imagen-3.0-capability-001',
-    prompt,
-    image: imageData,
-    config
-  };
-
-  if (maskData) {
-    editParams.mask = maskData;
+  if (options.editMode === 'inpaint') {
+    config.editMode = 'EDIT_MODE_INPAINT_INSERTION';
+  } else if (options.editMode === 'outpaint') {
+    config.editMode = 'EDIT_MODE_OUTPAINT';
   }
 
-  const response = await ai.models.editImage(editParams as Parameters<typeof ai.models.editImage>[0]);
+  const referenceImages: (RawReferenceImage | MaskReferenceImage)[] = [];
+
+  const rawRef = new RawReferenceImage();
+  rawRef.referenceImage = imageData;
+  rawRef.referenceId = 1;
+  referenceImages.push(rawRef);
+
+  if (maskData) {
+    const maskRef = new MaskReferenceImage();
+    maskRef.referenceImage = maskData;
+    maskRef.referenceId = 2;
+    const maskConfig: MaskReferenceConfig = { maskMode: 'MASK_MODE_USER_PROVIDED' };
+    maskRef.config = maskConfig;
+    referenceImages.push(maskRef);
+  }
+
+  const response = await ai.models.editImage({
+    model: 'imagen-3.0-capability-001',
+    prompt,
+    referenceImages,
+    config
+  });
 
   const images: Array<{ mimeType: string; data: string }> = [];
-  let text: string | undefined;
 
   if (response.generatedImages) {
     for (const img of response.generatedImages) {
@@ -349,7 +352,7 @@ export async function callGeminiEdit(
     }
   }
 
-  return { text, images };
+  return { images };
 }
 
 // Generate SVG via chat model
@@ -363,13 +366,15 @@ export async function callGeminiSvg(
   const systemPrompt = options.instructions ||
     'You are an expert SVG designer. Generate clean, optimized SVG code. Output ONLY the SVG code with no markdown fences or explanation. The SVG should be self-contained with proper viewBox and xmlns attributes.';
 
+  const config: GenerateContentConfig = {
+    systemInstruction: systemPrompt,
+    temperature: 0.7,
+  };
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: prompt,
-    config: {
-      systemInstruction: systemPrompt,
-      temperature: 0.7,
-    }
+    config
   });
 
   let svg = '';
@@ -379,7 +384,6 @@ export async function callGeminiSvg(
     }
   }
 
-  // Clean up any markdown fences that might have been included
   svg = svg.trim();
   if (svg.startsWith('```svg')) svg = svg.slice(6);
   else if (svg.startsWith('```xml')) svg = svg.slice(6);
@@ -400,7 +404,7 @@ export async function callGeminiSvg(
 // Segment image using Gemini 2.5
 export async function callGeminiSegment(
   apiKey: string,
-  imageData: { data: string; mimeType: string },
+  imageData: Image,
   prompt?: string
 ): Promise<GeminiSegmentResult> {
   const ai = new GoogleGenAI({ apiKey });
@@ -408,21 +412,23 @@ export async function callGeminiSegment(
   const segmentPrompt = prompt ||
     'Give the segmentation masks for all objects. Output a JSON list of segmentation masks where each entry contains the 2D bounding box in the key "box_2d", the segmentation mask in key "mask", and the text label in the key "label". Use descriptive labels.';
 
+  const config: GenerateContentConfig = {
+    temperature: 0,
+    responseModalities: ['TEXT'],
+  };
+
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: [
       {
         role: 'user',
         parts: [
-          { inlineData: imageData },
+          { inlineData: { data: imageData.imageBytes || '', mimeType: imageData.mimeType || 'image/png' } },
           { text: segmentPrompt }
         ]
       }
     ],
-    config: {
-      temperature: 0,
-      responseModalities: ['TEXT'],
-    }
+    config
   });
 
   let jsonText = '';
@@ -432,7 +438,6 @@ export async function callGeminiSegment(
     }
   }
 
-  // Parse JSON from response (handle markdown fences)
   jsonText = jsonText.trim();
   if (jsonText.startsWith('```json')) jsonText = jsonText.slice(7);
   else if (jsonText.startsWith('```')) jsonText = jsonText.slice(3);
@@ -442,8 +447,7 @@ export async function callGeminiSegment(
   let masks: SegmentationMask[] = [];
   try {
     const parsed = JSON.parse(jsonText);
-    // Handle data URI format in mask field
-    masks = parsed.map((m: { box_2d: [number, number, number, number]; mask: string; label: string }) => ({
+    masks = parsed.map((m: SegmentationMask) => ({
       ...m,
       mask: m.mask.startsWith('data:') ? m.mask.split(',')[1] : m.mask
     }));

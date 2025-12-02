@@ -7,6 +7,7 @@ import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type { Image } from "@google/genai";
 import { callGemini, callGeminiWithMessages, callGeminiImage, callGeminiUpscale, callGeminiEdit, callGeminiSvg, callGeminiSegment } from "./utils";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -45,11 +46,9 @@ const GeminiMessagesSchema = z.object({
 const GeminiImageSchema = z.object({
   prompt: z.string().describe("The image generation or editing prompt"),
   input_image: z.string().optional().describe("Path to input image for editing/manipulation"),
-  output_path: z.string().optional().describe("Path to save the output image"),
+  output_path: z.string().optional().describe("Path to save the output image (without extension - format determined by API)"),
   image_size: z.enum(["1K", "2K", "4K"]).optional().default("1K").describe("Output image size"),
   aspect_ratio: z.enum(["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]).optional().describe("Aspect ratio for generated image"),
-  output_format: z.enum(["png", "jpeg", "webp"]).optional().describe("Output image format"),
-  jpeg_quality: z.number().min(0).max(100).optional().describe("JPEG compression quality (0-100)"),
   negative_prompt: z.string().optional().describe("What to avoid in the generated image"),
   num_images: z.number().min(1).max(4).optional().describe("Number of images to generate (1-4)"),
   guidance_scale: z.number().optional().describe("How closely to follow the prompt (higher = more literal)"),
@@ -58,19 +57,19 @@ const GeminiImageSchema = z.object({
 
 const GeminiUpscaleSchema = z.object({
   input_image: z.string().describe("Path to input image to upscale"),
-  output_path: z.string().optional().describe("Path to save the upscaled image"),
-  upscale_factor: z.enum(["2x", "4x"]).optional().default("2x").describe("Upscale factor"),
-  output_format: z.enum(["png", "jpeg", "webp"]).optional().describe("Output image format"),
+  output_path: z.string().optional().describe("Path to save the upscaled image (without extension)"),
+  output_format: z.enum(["png", "jpeg", "webp"]).optional().describe("Output image format (supported in Imagen)"),
   jpeg_quality: z.number().min(0).max(100).optional().describe("JPEG compression quality (0-100)"),
+  upscale_factor: z.enum(["x2", "x4"]).optional().default("x2").describe("Upscale factor"),
 });
 
 const GeminiEditSchema = z.object({
   prompt: z.string().describe("Description of the edit to make"),
   input_image: z.string().describe("Path to input image to edit"),
   mask_image: z.string().optional().describe("Path to mask image (white areas will be edited)"),
-  output_path: z.string().optional().describe("Path to save the edited image"),
+  output_path: z.string().optional().describe("Path to save the edited image (without extension)"),
   edit_mode: z.enum(["inpaint", "outpaint"]).optional().describe("Edit mode: inpaint fills masked areas, outpaint extends image"),
-  output_format: z.enum(["png", "jpeg", "webp"]).optional().describe("Output image format"),
+  output_format: z.enum(["png", "jpeg", "webp"]).optional().describe("Output image format (supported in Imagen)"),
   jpeg_quality: z.number().min(0).max(100).optional().describe("JPEG compression quality (0-100)"),
   negative_prompt: z.string().optional().describe("What to avoid in the edited areas"),
   num_images: z.number().min(1).max(4).optional().describe("Number of variations to generate (1-4)"),
@@ -196,12 +195,12 @@ async function main() {
           case "gemini_image": {
             const args = GeminiImageSchema.parse(request.params.arguments) as GeminiImageArgs;
 
-            let inputImageData: { data: string; mimeType: string } | undefined;
+            let inputImage: Image | undefined;
             if (args.input_image) {
               const absInputPath = resolve(args.input_image);
               const imageBuffer = await readFile(absInputPath);
-              inputImageData = {
-                data: imageBuffer.toString('base64'),
+              inputImage = {
+                imageBytes: imageBuffer.toString('base64'),
                 mimeType: getMimeType(absInputPath)
               };
             }
@@ -209,13 +208,11 @@ async function main() {
             const result = await callGeminiImage(apiKey, args.prompt, {
               imageSize: args.image_size,
               aspectRatio: args.aspect_ratio,
-              outputFormat: args.output_format,
-              jpegQuality: args.jpeg_quality,
               negativePrompt: args.negative_prompt,
               numberOfImages: args.num_images,
               guidanceScale: args.guidance_scale,
               seed: args.seed,
-              inputImage: inputImageData
+              inputImage
             });
 
             const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [];
@@ -224,7 +221,8 @@ async function main() {
             for (let i = 0; i < result.images.length; i++) {
               const img = result.images[i];
               if (args.output_path) {
-                let filePath = args.output_path;
+                const ext = img.mimeType === 'image/png' ? '.png' : img.mimeType === 'image/webp' ? '.webp' : '.jpg';
+                let filePath = args.output_path.replace(/\.[^.]+$/, '') + ext;
                 if (result.images.length > 1) filePath = filePath.replace(/(\.[^.]+)$/, `_${i + 1}$1`);
                 const absPath = resolve(filePath);
                 await writeFile(absPath, Buffer.from(img.data, "base64"));
@@ -242,12 +240,12 @@ async function main() {
             const args = GeminiUpscaleSchema.parse(request.params.arguments) as GeminiUpscaleArgs;
             const absInputPath = resolve(args.input_image);
             const imageBuffer = await readFile(absInputPath);
-            const inputImageData = {
-              data: imageBuffer.toString('base64'),
+            const inputImage: Image = {
+              imageBytes: imageBuffer.toString('base64'),
               mimeType: getMimeType(absInputPath)
             };
 
-            const result = await callGeminiUpscale(apiKey, inputImageData, {
+            const result = await callGeminiUpscale(apiKey, inputImage, {
               upscaleFactor: args.upscale_factor,
               outputFormat: args.output_format,
               jpegQuality: args.jpeg_quality
@@ -257,7 +255,8 @@ async function main() {
             for (let i = 0; i < result.images.length; i++) {
               const img = result.images[i];
               if (args.output_path) {
-                let filePath = args.output_path;
+                const ext = img.mimeType === 'image/png' ? '.png' : img.mimeType === 'image/webp' ? '.webp' : '.jpg';
+                let filePath = args.output_path.replace(/\.[^.]+$/, '') + ext;
                 if (result.images.length > 1) filePath = filePath.replace(/(\.[^.]+)$/, `_${i + 1}$1`);
                 const absPath = resolve(filePath);
                 await writeFile(absPath, Buffer.from(img.data, "base64"));
@@ -273,22 +272,22 @@ async function main() {
             const args = GeminiEditSchema.parse(request.params.arguments) as GeminiEditArgs;
             const absInputPath = resolve(args.input_image);
             const imageBuffer = await readFile(absInputPath);
-            const inputImageData = {
-              data: imageBuffer.toString('base64'),
+            const inputImage: Image = {
+              imageBytes: imageBuffer.toString('base64'),
               mimeType: getMimeType(absInputPath)
             };
 
-            let maskData: { data: string; mimeType: string } | undefined;
+            let maskImage: Image | undefined;
             if (args.mask_image) {
               const absMaskPath = resolve(args.mask_image);
               const maskBuffer = await readFile(absMaskPath);
-              maskData = {
-                data: maskBuffer.toString('base64'),
+              maskImage = {
+                imageBytes: maskBuffer.toString('base64'),
                 mimeType: getMimeType(absMaskPath)
               };
             }
 
-            const result = await callGeminiEdit(apiKey, args.prompt, inputImageData, maskData, {
+            const result = await callGeminiEdit(apiKey, args.prompt, inputImage, maskImage, {
               editMode: args.edit_mode,
               outputFormat: args.output_format,
               jpegQuality: args.jpeg_quality,
@@ -304,7 +303,8 @@ async function main() {
             for (let i = 0; i < result.images.length; i++) {
               const img = result.images[i];
               if (args.output_path) {
-                let filePath = args.output_path;
+                const ext = img.mimeType === 'image/png' ? '.png' : img.mimeType === 'image/webp' ? '.webp' : '.jpg';
+                let filePath = args.output_path.replace(/\.[^.]+$/, '') + ext;
                 if (result.images.length > 1) filePath = filePath.replace(/(\.[^.]+)$/, `_${i + 1}$1`);
                 const absPath = resolve(filePath);
                 await writeFile(absPath, Buffer.from(img.data, "base64"));
@@ -339,12 +339,12 @@ async function main() {
             const args = GeminiSegmentSchema.parse(request.params.arguments) as GeminiSegmentArgs;
             const absInputPath = resolve(args.input_image);
             const imageBuffer = await readFile(absInputPath);
-            const inputImageData = {
-              data: imageBuffer.toString('base64'),
+            const inputImage: Image = {
+              imageBytes: imageBuffer.toString('base64'),
               mimeType: getMimeType(absInputPath)
             };
 
-            const result = await callGeminiSegment(apiKey, inputImageData, args.prompt);
+            const result = await callGeminiSegment(apiKey, inputImage, args.prompt);
 
             const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [];
 
