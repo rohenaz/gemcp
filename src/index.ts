@@ -20,7 +20,6 @@ const SetupSchema = z.object({});
 
 const GeminiGenerateSchema = z.object({
   prompt: z.string().describe("The input text or prompt for Gemini"),
-  model: z.string().optional().default("gemini-3-pro-preview").describe("Gemini model variant to use"),
   instructions: z.string().optional().describe("System instructions for the model"),
   thinking_level: z.enum(["low", "high"]).optional().describe("Thinking/reasoning depth level"),
   include_thoughts: z.boolean().optional().describe("Whether to include the model's reasoning in response"),
@@ -34,7 +33,6 @@ const GeminiMessagesSchema = z.object({
     role: z.enum(["user", "assistant", "system"]).describe("Message role"),
     content: z.string().describe("Message content"),
   })).describe("Array of conversation messages"),
-  model: z.string().optional().default("gemini-3-pro-preview").describe("Gemini model variant to use"),
   instructions: z.string().optional().describe("System instructions for the model"),
   thinking_level: z.enum(["low", "high"]).optional().describe("Thinking/reasoning depth level"),
   include_thoughts: z.boolean().optional().describe("Whether to include the model's reasoning in response"),
@@ -173,7 +171,7 @@ async function main() {
           case "gemini_generate": {
             const args = GeminiGenerateSchema.parse(request.params.arguments) as GeminiGenerateArgs;
             const result = await callGemini(apiKey, args.prompt, {
-              model: args.model, instructions: args.instructions, thinkingLevel: args.thinking_level,
+              instructions: args.instructions, thinkingLevel: args.thinking_level,
               includeThoughts: args.include_thoughts, maxTokens: args.max_tokens, temperature: args.temperature, topP: args.top_p,
             });
             let text = result.reasoning ? `**Reasoning:**\n${result.reasoning}\n\n**Response:**\n${result.content}` : result.content;
@@ -184,7 +182,7 @@ async function main() {
           case "gemini_messages": {
             const args = GeminiMessagesSchema.parse(request.params.arguments) as GeminiMessagesArgs;
             const result = await callGeminiWithMessages(apiKey, args.messages, {
-              model: args.model, instructions: args.instructions, thinkingLevel: args.thinking_level,
+              instructions: args.instructions, thinkingLevel: args.thinking_level,
               includeThoughts: args.include_thoughts, maxTokens: args.max_tokens, temperature: args.temperature, topP: args.top_p,
             });
             let text = result.reasoning ? `**Reasoning:**\n${result.reasoning}\n\n**Response:**\n${result.content}` : result.content;
