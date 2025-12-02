@@ -7,7 +7,6 @@ import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { fileTypeFromBuffer } from "file-type";
 import { callGemini, callGeminiWithMessages, callGeminiImage, callGeminiUpscale, callGeminiEdit, callGeminiSvg, callGeminiSegment } from "./utils";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -108,12 +107,6 @@ function getMimeType(path: string): string {
   return types[ext || ''] || 'image/png';
 }
 
-// Detect actual image format from bytes using file-type library
-async function detectMimeType(base64Data: string): Promise<string> {
-  const buffer = Buffer.from(base64Data, 'base64');
-  const type = await fileTypeFromBuffer(buffer);
-  return type?.mime || 'image/png';
-}
 
 const SETUP_INSTRUCTIONS = `
 Gemini MCP Server - Setup Required
@@ -230,18 +223,14 @@ async function main() {
 
             for (let i = 0; i < result.images.length; i++) {
               const img = result.images[i];
-              const actualMimeType = await detectMimeType(img.data);
-              const imgBuffer = Buffer.from(img.data, "base64");
               if (args.output_path) {
-                const extMap: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif' };
-                const correctExt = extMap[actualMimeType] || '.png';
-                let filePath = args.output_path.replace(/\.[^.]+$/, correctExt);
+                let filePath = args.output_path;
                 if (result.images.length > 1) filePath = filePath.replace(/(\.[^.]+)$/, `_${i + 1}$1`);
                 const absPath = resolve(filePath);
-                await writeFile(absPath, imgBuffer);
-                content.push({ type: "text", text: `Saved: ${absPath} (${actualMimeType})` });
+                await writeFile(absPath, Buffer.from(img.data, "base64"));
+                content.push({ type: "text", text: `Saved: ${absPath}` });
               } else {
-                content.push({ type: "image", data: img.data, mimeType: actualMimeType });
+                content.push({ type: "image", data: img.data, mimeType: img.mimeType });
               }
             }
 
@@ -267,18 +256,14 @@ async function main() {
             const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [];
             for (let i = 0; i < result.images.length; i++) {
               const img = result.images[i];
-              const actualMimeType = await detectMimeType(img.data);
-              const imgBuffer = Buffer.from(img.data, "base64");
               if (args.output_path) {
-                const extMap: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
-                const correctExt = extMap[actualMimeType] || '.png';
-                let filePath = args.output_path.replace(/\.[^.]+$/, correctExt);
+                let filePath = args.output_path;
                 if (result.images.length > 1) filePath = filePath.replace(/(\.[^.]+)$/, `_${i + 1}$1`);
                 const absPath = resolve(filePath);
-                await writeFile(absPath, imgBuffer);
-                content.push({ type: "text", text: `Saved: ${absPath} (${actualMimeType})` });
+                await writeFile(absPath, Buffer.from(img.data, "base64"));
+                content.push({ type: "text", text: `Saved: ${absPath}` });
               } else {
-                content.push({ type: "image", data: img.data, mimeType: actualMimeType });
+                content.push({ type: "image", data: img.data, mimeType: img.mimeType });
               }
             }
             return { content };
@@ -318,18 +303,14 @@ async function main() {
 
             for (let i = 0; i < result.images.length; i++) {
               const img = result.images[i];
-              const actualMimeType = await detectMimeType(img.data);
-              const imgBuffer = Buffer.from(img.data, "base64");
               if (args.output_path) {
-                const extMap: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
-                const correctExt = extMap[actualMimeType] || '.png';
-                let filePath = args.output_path.replace(/\.[^.]+$/, correctExt);
+                let filePath = args.output_path;
                 if (result.images.length > 1) filePath = filePath.replace(/(\.[^.]+)$/, `_${i + 1}$1`);
                 const absPath = resolve(filePath);
-                await writeFile(absPath, imgBuffer);
-                content.push({ type: "text", text: `Saved: ${absPath} (${actualMimeType})` });
+                await writeFile(absPath, Buffer.from(img.data, "base64"));
+                content.push({ type: "text", text: `Saved: ${absPath}` });
               } else {
-                content.push({ type: "image", data: img.data, mimeType: actualMimeType });
+                content.push({ type: "image", data: img.data, mimeType: img.mimeType });
               }
             }
             return { content };

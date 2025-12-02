@@ -36,23 +36,6 @@ Version is read from `package.json` (single source of truth).
 - **SVG**: Uses the chat model since Gemini 3 Pro can emit valid inline SVG. Nano/Banana variants output raster only.
 - **Segment**: Returns `box_2d` (normalized 0-1000) and base64 PNG masks. Masks are probability maps (0-255).
 
-## Critical: Gemini Mime Type Bug
-
-**Gemini API returns incorrect mime types for images.** DO NOT trust `img.mimeType` from API responses.
-
-The fix: Use `file-type` library to detect actual format from image bytes before returning to Claude or saving to disk. See `detectMimeType()` in `src/index.ts`.
-
-Without this fix, inline images break Claude sessions with "Image does not match provided media type" errors.
-
-## Troubleshooting
-
-If image generation breaks Claude sessions:
-```bash
-rm -rf ~/.bun/install/cache/@bopen-io          # Clear bun cache
-rm -rf ~/.claude/projects/*your-project*       # Clear corrupted project cache
-# Restart Claude Code
-```
-
 ## Environment
 
 `GEMINI_API_KEY` - Get from https://aistudio.google.com/apikey
