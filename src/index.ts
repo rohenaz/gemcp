@@ -13,7 +13,7 @@ import { callGemini, callGeminiWithMessages, callGeminiImage, callGeminiUpscale,
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(await readFile(join(__dirname, "../package.json"), "utf-8")) as { version: string };
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY;
 const isConfigured = Boolean(apiKey);
 
 const SetupSchema = z.object({});
