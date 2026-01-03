@@ -2,10 +2,7 @@
   "mcpServers": {
     "gemini": {
       "command": "bun",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/src/index.ts"],
-      "env": {
-        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
-      }
+      "args": ["${CLAUDE_PLUGIN_ROOT}/src/index.ts"]
     }
   }
 }
