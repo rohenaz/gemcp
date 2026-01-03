@@ -1,9 +1,12 @@
 {
-  "gemini": {
-    "command": "bun",
-    "args": ["src/index.ts"],
-    "env": {
-      "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+  "mcpServers": {
+    "gemini": {
+      "command": "bun",
+      "args": ["src/index.ts"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}",
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
     }
   }
 }
