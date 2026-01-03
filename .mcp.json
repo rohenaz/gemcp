@@ -1,7 +1,7 @@
 {
   "gemini": {
-    "command": "bunx",
-    "args": ["@bopen-io/gemcp"],
+    "command": "bun",
+    "args": ["src/index.ts"],
     "env": {
       "GEMINI_API_KEY": "${GEMINI_API_KEY}"
     }
