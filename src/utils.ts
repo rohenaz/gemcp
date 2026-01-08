@@ -6,6 +6,11 @@ import {
   EditMode,
   MaskReferenceMode,
 } from "@google/genai";
+
+// Strip whitespace/newlines from API key (common issue with env vars)
+function cleanApiKey(key: string): string {
+  return key.trim();
+}
 import type {
   GenerateContentConfig,
   ImageConfig,
@@ -75,7 +80,7 @@ export async function callGemini(
     includeThoughts?: boolean;
   } = {}
 ): Promise<GeminiResult> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: cleanApiKey(apiKey) });
   const model = options.model || 'gemini-3-pro-preview';
 
   const config: GenerateContentConfig = {
@@ -142,7 +147,7 @@ export async function callGeminiWithMessages(
     includeThoughts?: boolean;
   } = {}
 ): Promise<GeminiResult> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: cleanApiKey(apiKey) });
   const model = options.model || 'gemini-3-pro-preview';
 
   const systemMessage = messages.find(m => m.role === 'system');
@@ -217,7 +222,7 @@ export async function callGeminiImage(
     inputImage?: Image;
   } = {}
 ): Promise<GeminiImageResult> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: cleanApiKey(apiKey) });
 
   const parts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [];
 
@@ -283,7 +288,7 @@ export async function callGeminiUpscale(
     upscaleFactor?: 'x2' | 'x4';
   } = {}
 ): Promise<GeminiImageResult> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: cleanApiKey(apiKey) });
 
   const formatToMime: Record<string, string> = {
     'png': 'image/png',
@@ -338,7 +343,7 @@ export async function callGeminiEdit(
     editMode?: 'inpaint' | 'outpaint';
   } = {}
 ): Promise<GeminiImageResult> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: cleanApiKey(apiKey) });
 
   const formatToMime: Record<string, string> = {
     'png': 'image/png',
@@ -409,7 +414,7 @@ export async function callGeminiSvg(
   prompt: string,
   options: { instructions?: string } = {}
 ): Promise<GeminiSvgResult> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: cleanApiKey(apiKey) });
 
   const systemPrompt = options.instructions ||
     'You are an expert SVG designer. Generate clean, optimized SVG code. Output ONLY the SVG code with no markdown fences or explanation. The SVG should be self-contained with proper viewBox and xmlns attributes.';
@@ -455,7 +460,7 @@ export async function callGeminiSegment(
   imageData: Image,
   prompt?: string
 ): Promise<GeminiSegmentResult> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: cleanApiKey(apiKey) });
 
   const segmentPrompt = prompt ||
     'Give the segmentation masks for all objects. Output a JSON list of segmentation masks where each entry contains the 2D bounding box in the key "box_2d", the segmentation mask in key "mask", and the text label in the key "label". Use descriptive labels.';
