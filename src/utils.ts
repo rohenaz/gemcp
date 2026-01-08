@@ -2,6 +2,9 @@ import {
   GoogleGenAI,
   RawReferenceImage,
   MaskReferenceImage,
+  ThinkingLevel,
+  EditMode,
+  MaskReferenceMode,
 } from "@google/genai";
 import type {
   GenerateContentConfig,
@@ -10,6 +13,7 @@ import type {
   EditImageConfig,
   Image,
   MaskReferenceConfig,
+  ThinkingConfig,
 } from "@google/genai";
 
 // Result types for our wrapper functions
@@ -67,6 +71,8 @@ export async function callGemini(
     maxTokens?: number;
     temperature?: number;
     topP?: number;
+    thinkingLevel?: 'low' | 'high';
+    includeThoughts?: boolean;
   } = {}
 ): Promise<GeminiResult> {
   const ai = new GoogleGenAI({ apiKey });
@@ -79,6 +85,18 @@ export async function callGemini(
     topP: options.topP,
   };
 
+  // Add thinking config if provided
+  if (options.thinkingLevel || options.includeThoughts) {
+    const thinkingConfig: ThinkingConfig = {};
+    if (options.thinkingLevel) {
+      thinkingConfig.thinkingLevel = options.thinkingLevel === 'low' ? ThinkingLevel.LOW : ThinkingLevel.HIGH;
+    }
+    if (options.includeThoughts !== undefined) {
+      thinkingConfig.includeThoughts = options.includeThoughts;
+    }
+    config.thinkingConfig = thinkingConfig;
+  }
+
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
@@ -86,14 +104,22 @@ export async function callGemini(
   });
 
   let content = '';
+  let reasoning: string | undefined;
+
   if (response.candidates?.[0]?.content?.parts) {
     for (const part of response.candidates[0].content.parts) {
-      if (part.text) content += part.text;
+      if (part.thought) {
+        // Thought/reasoning content
+        if (part.text) reasoning = (reasoning || '') + part.text;
+      } else if (part.text) {
+        content += part.text;
+      }
     }
   }
 
   return {
     content,
+    reasoning,
     usage: response.usageMetadata ? {
       promptTokens: response.usageMetadata.promptTokenCount || 0,
       completionTokens: response.usageMetadata.candidatesTokenCount || 0,
@@ -112,6 +138,8 @@ export async function callGeminiWithMessages(
     maxTokens?: number;
     temperature?: number;
     topP?: number;
+    thinkingLevel?: 'low' | 'high';
+    includeThoughts?: boolean;
   } = {}
 ): Promise<GeminiResult> {
   const ai = new GoogleGenAI({ apiKey });
@@ -132,6 +160,18 @@ export async function callGeminiWithMessages(
     topP: options.topP,
   };
 
+  // Add thinking config if provided
+  if (options.thinkingLevel || options.includeThoughts) {
+    const thinkingConfig: ThinkingConfig = {};
+    if (options.thinkingLevel) {
+      thinkingConfig.thinkingLevel = options.thinkingLevel === 'low' ? ThinkingLevel.LOW : ThinkingLevel.HIGH;
+    }
+    if (options.includeThoughts !== undefined) {
+      thinkingConfig.includeThoughts = options.includeThoughts;
+    }
+    config.thinkingConfig = thinkingConfig;
+  }
+
   const response = await ai.models.generateContent({
     model,
     contents: chatMessages,
@@ -139,14 +179,22 @@ export async function callGeminiWithMessages(
   });
 
   let content = '';
+  let reasoning: string | undefined;
+
   if (response.candidates?.[0]?.content?.parts) {
     for (const part of response.candidates[0].content.parts) {
-      if (part.text) content += part.text;
+      if (part.thought) {
+        // Thought/reasoning content
+        if (part.text) reasoning = (reasoning || '') + part.text;
+      } else if (part.text) {
+        content += part.text;
+      }
     }
   }
 
   return {
     content,
+    reasoning,
     usage: response.usageMetadata ? {
       promptTokens: response.usageMetadata.promptTokenCount || 0,
       completionTokens: response.usageMetadata.candidatesTokenCount || 0,
@@ -311,9 +359,9 @@ export async function callGeminiEdit(
   if (options.seed !== undefined) config.seed = options.seed;
 
   if (options.editMode === 'inpaint') {
-    config.editMode = 'EDIT_MODE_INPAINT_INSERTION';
+    config.editMode = EditMode.EDIT_MODE_INPAINT_INSERTION;
   } else if (options.editMode === 'outpaint') {
-    config.editMode = 'EDIT_MODE_OUTPAINT';
+    config.editMode = EditMode.EDIT_MODE_OUTPAINT;
   }
 
   const referenceImages: (RawReferenceImage | MaskReferenceImage)[] = [];
@@ -327,7 +375,7 @@ export async function callGeminiEdit(
     const maskRef = new MaskReferenceImage();
     maskRef.referenceImage = maskData;
     maskRef.referenceId = 2;
-    const maskConfig: MaskReferenceConfig = { maskMode: 'MASK_MODE_USER_PROVIDED' };
+    const maskConfig: MaskReferenceConfig = { maskMode: MaskReferenceMode.MASK_MODE_USER_PROVIDED };
     maskRef.config = maskConfig;
     referenceImages.push(maskRef);
   }
